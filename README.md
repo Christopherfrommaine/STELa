@@ -1,3 +1,6 @@
+# NOTE
+Currently this language is **UNDER CONSTRUCTION** and being developed currently. It is not finished and cannot be used to run programs yet.
+
 # STELa
 STELa (*S*et *T*heory *E*so-*La*ng) is a mathematics-inspired programming language. It's based on the simple idea that everything (yes, **everything**) is a set:
 
