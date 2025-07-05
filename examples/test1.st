@@ -1,2 +1,2 @@
 s = {};
-print s
+print s;

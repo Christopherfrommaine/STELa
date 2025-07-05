@@ -1,3 +1,4 @@
+use log;
 use std::collections::VecDeque;
 
 #[derive(Debug, Clone, PartialEq)]
@@ -24,7 +25,7 @@ pub enum Token {
     Eof,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Expr {
     Identifier(String),
     SetLiteral(Vec<Expr>),
@@ -38,7 +39,6 @@ pub enum Statement {
     Assigment(String, Expr),
     Print(Expr),
     Display(Expr),
-    Expression(Expr),  // Is this necesary???
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -52,9 +52,13 @@ pub struct Lexer {
     current_char: Option<char>,
 }
 
+fn preprocess_input(input: &str) -> String {
+    return input.replace(",", " ,")
+}
+
 impl Lexer {
     pub fn new(input: &str) -> Self {
-        let chars: Vec<char> = input.chars().collect();
+        let chars: Vec<char> = preprocess_input(input).chars().collect();
         let current_char = chars.get(0).copied();
 
         Lexer { input: chars, position: 0, current_char }
@@ -90,8 +94,10 @@ impl Lexer {
         let mut result = String::new();
 
         while let Some(ch) = self.current_char {
+            const BANNED_CHARS: &str = ";(){}[]@#=";
+
             // TODO: More checks on ch needed?
-            if !ch.is_whitespace() {
+            if !ch.is_whitespace() && !BANNED_CHARS.contains(ch) {
                 result.push(ch);
                 self.advance();
             } else {
@@ -205,7 +211,8 @@ impl Parser {
 
         while self.current_token != Token::Eof {
             statements.push(self.parse_statement()?);
-            println!("{:?} | {:?}", self.current_token, statements);
+            log::debug!("current_tok: {:?} | statements: {:?}", self.current_token, statements);
+            log::info!("statement finished: {:?}", statements[statements.len() - 1]);
         }
 
         Ok(Program { statements })
@@ -233,8 +240,7 @@ impl Parser {
                 Ok(Statement::Assigment(name, expr))
             },
             _ => {
-                let expr = self.parse_expression()?;
-                Ok(Statement::Expression(expr))
+                Err(format!("Unable to parse statement type.\nID: {:?}", self.current_token))
             }
         }
     }
@@ -244,13 +250,23 @@ impl Parser {
         let mut tokens = Vec::new();
         while self.current_token != Token::Semicolon {
             tokens.push(self.current_token.clone());
+            self.advance();
+            
+            if self.current_token == Token::Eof {
+                return Err("Missing Semicolon".to_string());
+            }
         }
+        self.advance();
+
+        log::info!("Tokens in expression: {:?}", tokens);
 
         Self::parse_expression_from_tokens(tokens)
     }
 
     fn parse_expression_from_tokens_to_subexpressions(tokens: Vec<Token>) -> Result<Vec<Expr>, String> {
         const BRACKETS: [(Token, Token); 2] = [(Token::LeftParen, Token::RightParen), (Token::LeftBrace, Token::RightBrace)];
+
+        log::debug!("Input Tokens for parsing: {:?}", tokens);
 
         let mut subexprs: Vec<Expr> = Vec::new();
 
@@ -259,38 +275,40 @@ impl Parser {
 
         let mut bracket_stack: Vec<Token> = Vec::new();
         let mut subexpr = Vec::new();
-        for t in tokens {
+        for t in tokens.clone() {
 
             // Handle Brackets
             if BRACKETS.iter().any(|i| t == i.0) {
                 bracket_stack.push(t.clone());
-            }
-            else if BRACKETS.iter().any(|i| t == i.1) {
+            } else if let Some(expected) = BRACKETS.iter().find(|i| t == i.1) {
                 let popped = bracket_stack.pop();
-                if popped != Some(t.clone()) {
-                    return Err("Brackets or Parens do not match.".to_string());
+                
+                log::debug!("Expected Bracket: {:?}, Stack: {:?}", expected, bracket_stack);
+                
+                if popped != Some(expected.0.clone()) {
+                    return Err(format!("Brackets or Parens do not match.\nCurrent Expression:{:?}\nBracket Stack: {:?}", tokens, bracket_stack));
                 }
                 if bracket_stack.len() == 0 {
-                    if popped == Some(Token::RightParen) {
-                        subexprs.push(Self::parse_expression_from_tokens(subexpr.clone())?);
-                    } else if popped == Some(Token::RightBrace) {
+                    if expected.1 == Token::RightParen {
+                        subexprs.push(Self::parse_expression_from_tokens(subexpr[1..].to_vec())?);
+                    } else if expected.1 == Token::RightBrace {
                         if subexpr.len() > 2 && subexpr[subexpr.len() - 2] == Token::ForAll {
                             if let Token::Identifier(name) = subexpr[subexpr.len() - 1].clone() {
                                 subexprs.push(
                                     Expr::ForAll(
                                         Box::new(Expr::SetLiteral(vec![
-                                            Self::parse_expression_from_tokens(subexpr[..(subexpr.len() - 2)].to_vec())?
+                                            Self::parse_expression_from_tokens(subexpr[1..(subexpr.len() - 2)].to_vec())?
                                         ])),
                                         name
                                     )
                                 );
                             } else {
-                                return Err("Last token of a ForAll set is not an identifier".to_string())
+                                return Err(format!("Last token of a ForAll set is not an identifier.\nExpression: {:?}\nVariable: {:?}", tokens, subexpr[subexpr.len() - 1]))
                             }
                         } else {
                             subexprs.push(
                                 Expr::SetLiteral(
-                                    Self::parse_expression_from_tokens_to_subexpressions(subexpr)?
+                                    Self::parse_expression_from_tokens_to_subexpressions(subexpr[1..].to_vec())?
                                 )
                             )
                         }
@@ -315,8 +333,8 @@ impl Parser {
                     let argument = subexprs.pop().ok_or_else(|| "No Valid Argument for Application.".to_string())?;
                     let function = subexprs.pop().ok_or_else(|| "No Valid Argument for Application.".to_string())?;
                     subexprs.push(Expr::Application(
-                        Box::new(argument),
-                        Box::new(function)
+                        Box::new(function),
+                        Box::new(argument)
                     ));
 
                     application_next = false;
@@ -343,10 +361,10 @@ impl Parser {
         }
 
         if application_next {
-            return Err("End of expression before Application had enough arguments".to_string());
+            return Err(format!("End of expression before Application had enough arguments.\nExpression: {:?}", tokens));
         }
         if membership_next {
-            return Err("End of expression before Membership had enough arguments".to_string());
+            return Err(format!("End of expression before Membership had enough arguments.\nExpression: {:?}", tokens));
         }
 
         Ok(subexprs)
@@ -358,10 +376,14 @@ impl Parser {
         let mut subexprsdq: VecDeque<Expr> = subexprs.into_iter().collect();
 
         while subexprsdq.len() != 1 {
+            log::debug!("Subexprsdq: {:?}", subexprsdq);
+
             if subexprsdq.len() == 2 {
                 // At this point, it could be inferred to be an application, so this should be a warning, but it's fine to leave it as an error for proper formatting
-                return Err("Expression could not be parsed due to ambiguity in application for only two expressions.".to_string());
+                return Err(format!("Expression could not be parsed due to ambiguity in application for only two expressions.\nExpression: {:?}", subexprsdq));
             }
+
+            assert!(subexprsdq.len() >= 3);
 
             let arg1 = subexprsdq.pop_front().unwrap();
             let map = subexprsdq.pop_front().unwrap();
@@ -412,7 +434,6 @@ impl fmt::Display for Statement {
             Statement::Assigment(name, expr) => write!(f, "{} = {}", name, expr),
             Statement::Print(expr) => write!(f, "print {}", expr),
             Statement::Display(expr) => write!(f, "display {}", expr),
-            Statement::Expression(expr) => write!(f, "{}", expr),
         }
     }
 }

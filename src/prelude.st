@@ -5,11 +5,11 @@
 # 'none' keyword is an internal marker which the empty set contains (i.e. {} is a set containing none) which is used for filtering. This is only under-the-hood
 # 'for all a' creates an infinite set based on the universe of all values of a (i.e. all possible sets and sets of sets)
 # 'print' will evaluate a variable and print it as a set
-# 'display' will attempt to interpret a set as a linked list of numerals corresponding to UTF-8 characters
+# 'display' will attempt to interpret a set as vector of Ackermann-encoded numbers corresponding to UTF-8 characters
 
 # 'a@b' is the application of a map 'a' to the set 'b'
 # 'a b c' is evaluated with b as a binary operator to (b@a)@c
-# unless within a set: '{a b c}'. Use '{(a b c)}' to denote '{a@b@c}'
+# unless within a set: '{a b c}'. Use '{(a b c)}' instead.
 # All evaluations are as lazy as possible,
 # only being actually computed for membership checks (is that needed???) and printing
 
@@ -30,11 +30,11 @@ and = {(0, {(0, 0) (1, 0)}) (1, {(0, 0) (1, 1)})};
 xor = {(0, {(0, 0) (1, 1)}) (1, {(0, 1) (1, 0)})};
 
 ## Set Operations
-| = {(a, {(b, if@b@a@none) for all b}) for all a};  # 'such that' operator
-U = {(A, {(B, {(e | ((e in A) or (e in B))) for all e}) for all B}) for all A};  # Union
+| = {(a, {(bool, if@bool@a@none) for all bool}) for all a};  # 'such that' operator
+U = {(A, {(B, {(e | ((e in A) or  (e in B))) for all e}) for all B}) for all A};  # Union
 & = {(A, {(B, {(e | ((e in A) and (e in B))) for all e}) for all B}) for all A};  # Intersection
 ^ = {(A, {(B, {(e | ((e in A) xor (e in B))) for all e}) for all B}) for all A};  # Symmetric Difference
-? = {(a, {(b, and((a in b), (b in a))) for all b}) for all a};  # equality
+? = {(a, {(b, and@((a in b), (b in a))) for all b}) for all a};  # equality
 
 ## Basic Arithmetic
 S = {(n, n U {n}) for all n};
@@ -42,7 +42,7 @@ S = {(n, n U {n}) for all n};
 * = {(0, {(n, 0) for all n})} U {(S@m, {(n, (m * n) + n) for all n}) for all m};
 
 ## Higher Order Operations
-map = {(f, {(S, {(element | (element in S)) for all element}) for all S}) for all f};
+map = {(f, {(S, {(f@element | (element in S)) for all element}) for all S}) for all f};
 filter = {(pred, {(S, {(e | ((e in S) and pred@e)) for all e}) for all S}) for all pred};
 # fold is impossible due to sets being unordered (though I could define an order based on trees)
 all = {(pred, {(S, (S ? filter@pred@S)) for all S}) for all pred};

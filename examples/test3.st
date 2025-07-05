@@ -1,0 +1,1 @@
+, = {(a, {(b, {{a} {a b}}) for all b}) for all a};

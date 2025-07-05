@@ -1,0 +1,47 @@
+# Define sets with Ackermann codes of the powers of 2 (i.e. Ack(dn) = 2 ^ n)
+d0 = {};
+d1 = {d0};
+d2 = {d1};
+d3 = {d2};
+d4 = {d3};
+d5 = {d4};
+d6 = {d5};
+d7 = {d6};
+
+# Define regular digits for indices in a vector
+2 = S(1);
+3 = S(2);
+4 = S(3);
+5 = S(4);
+6 = S(5);
+7 = S(6);
+8 = S(7);
+9 = S(8);
+10 = S(9);
+
+# Define sets with Ackermann codes of each letter's ASCII value
+h = {d7 d6 d4};
+e = {d7 d6 d3 d1};
+l = {d7, d6, d4, d3};
+o = {d7, d6, d4, d3, d2, d1};
+sp = {d6};
+w = {d7, d6, d5, d3, d2, d1};
+r = {d7, d6, d5, d2};
+d = {d7, d6, d3};
+
+# Put everything together in a string
+str = {
+    (0, h)
+    (1, e)
+    (2, l)
+    (3, l)
+    (4, o)
+    (5, sp)
+    (6, w)
+    (7, o)
+    (8, r)
+    (9, l)
+    (10, d)
+};
+
+display str;
