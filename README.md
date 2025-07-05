@@ -4,11 +4,11 @@ STELa (*S*et *T*heory *E*so-*La*ng) is a mathematics-inspired programming langua
 Sets are sets, numbers are sets, functions are sets, lists are sets, strings are sets, *everything is a set*.
 
 # Getting Started
-The STELa parser and interpreter are built in Rust. To run a program, install rust, clone this repo, and run `cargo r -- foo.st` in the STELa directory, passing the path to a file ending in `.st`.
+The STELa parser and interpreter are built in Rust. To run a program, install rust, clone this repo, and run `cargo r -- foo.stela` in the STELa directory, passing the path to a file ending in `.st`.
 
 The simplest program in STELa is printint out an empty set:
 
-```st
+```stelaela
 print {};
 ```
 
@@ -17,17 +17,17 @@ For some fuller examples, see the `examples/` directory or check out the `src/pr
 # Language Design
 ## Syntax
 To create a set, simply put any number of space-seperated elements between two braces:
-```st
+```stela
 a = {b c d};
 ```
 
 To define a function, simply create an infinite set which maps all possible inputs to their respective output. STELa is lazily evaluated and uses pattern matching to try to find a match.
-```st
+```stela
 square = {(x, x * x) for all x};
 ```
 
 To apply a map to a value, use the `@` symbol:
-```st
+```stela
 2 = {{}, {{}}};
 four = square@2;
 ```
@@ -45,17 +45,17 @@ a b c => (b@a)@c
 This allows you to define binary operators easily, and in fact all operators (such as `+`, `*`, `U` (union), `|` (filter), etc) are defined in the prelude and aren't considered core language features.
 
 This does not work in the case of sets like:
-```st
+```stela
 {a b c}
 ```
 
 Instead, write:
-```st
+```stela
 {(a b c)}
 ```
 
 to be interpreted as
-```st
+```stela
 {b@a@c}
 ```
 
@@ -75,13 +75,8 @@ Everything else can be done with sets alone. Looping can be done with recursion,
 ## Russel's Paradox
 Some of you set theorists can probably see one major flaw in the languages design. It is exemplified by the following statement:
 
-```st
+```stela
 R = {s | not(s in s) for all s};
 print R in R;
 ```
 In other words, "does the set of all sets that do not contain themselves contain itself?". This is, of course, paradoxical. Attempting to evaluate this will lead to unknown behavior and should be avoided.
-
-# Interpreter Design
-
-
-
