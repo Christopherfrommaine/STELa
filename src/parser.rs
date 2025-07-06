@@ -1,4 +1,5 @@
 use log;
+use core::fmt;
 use std::collections::{HashSet, VecDeque};
 
 #[derive(Debug, Clone, PartialEq)]
@@ -25,13 +26,29 @@ pub enum Token {
     Eof,
 }
 
-#[derive(Clone, Debug, Eq, PartialOrd, Ord, Hash)]
+#[derive(Clone, Eq, PartialOrd, Ord, Hash)]
 pub enum Expr {
     Identifier(String),
     SetLiteral(Vec<Expr>),
     Application(Box<Expr>, Box<Expr>),
     ForAll(Box<Expr>, String),
     Membership(Box<Expr>, Box<Expr>),
+    Known(crate::interpreter3::Set),  // Only used within interpreter
+    None,                             // Only used within interpreter
+}
+
+impl std::fmt::Debug for Expr {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Expr::Identifier(name) => write!(f, "{}", name),
+            Expr::SetLiteral(elems) => {write!(f, "{:?}", elems)}
+            Expr::Application(func, arg) => write!(f, "({:?}@{:?})", func, arg),
+            Expr::ForAll(expr, var) => {write!(f, "{{{:?} for all {}}}", expr, var)}
+            Expr::Membership(elem, set) => write!(f, "{:?} in {:?}", elem, set),
+            Expr::Known(s) => {write!(f, "{:?}", s)},
+            Expr::None => {write!(f, "none")}
+        }
+    }
 }
 
 impl PartialEq for Expr {
@@ -51,11 +68,21 @@ impl PartialEq for Expr {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Clone, PartialEq)]
 pub enum Statement {
     Assigment(String, Expr),
     Print(Expr),
     Display(Expr),
+}
+
+impl std::fmt::Debug for Statement {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Statement::Assigment(name, expr) => write!(f, "{} = {:?}", name, expr),
+            Statement::Print(expr) => write!(f, "print {:?}", expr),
+            Statement::Display(expr) => write!(f, "display {:?}", expr),
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -341,7 +368,7 @@ impl Parser {
                 if let Token::Identifier(name) = t.clone() {
                     subexprs.push(Expr::Identifier(name));
                 } else if Token::None == t {
-                    subexprs.push(Expr::Identifier("none".to_string()));
+                    subexprs.push(Expr::None);
                 }
 
                 assert!(!(application_next && membership_next));
@@ -422,35 +449,4 @@ impl Parser {
         return subexprsdq.pop_front().ok_or_else(|| "Parsing resulted in wrong number of subexpressions.".to_string())
     }
 
-}
-
-
-use std::fmt;
-impl fmt::Display for Expr {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Expr::Identifier(name) => write!(f, "{}", name),
-            Expr::SetLiteral(elements) => {
-                write!(f, "{{")?;
-                for (i, elem) in elements.iter().enumerate() {
-                    if i > 0 { write!(f, " ")?; }
-                    write!(f, "{}", elem)?;
-                }
-                write!(f, "}}")
-            }
-            Expr::Application(func, arg) => write!(f, "{}({})", func, arg),
-            Expr::ForAll(expr, var) => {write!(f, "{{{} for all {}}}", expr, var)}
-            Expr::Membership(elem, set) => write!(f, "{} in {}", elem, set),
-        }
-    }
-}
-
-impl fmt::Display for Statement {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Statement::Assigment(name, expr) => write!(f, "{} = {}", name, expr),
-            Statement::Print(expr) => write!(f, "print {}", expr),
-            Statement::Display(expr) => write!(f, "display {}", expr),
-        }
-    }
 }

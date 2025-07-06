@@ -37,9 +37,15 @@ impl Value {
 }
 
 
-#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Set {
     s: BTreeSet<Set>,
+}
+
+impl std::fmt::Debug for Set {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}", self.s)
+    }
 }
 
 impl Set {
@@ -88,13 +94,30 @@ impl Interpreter {
         self.ast[self.position].clone()
     }
 
+    pub fn run(&mut self) -> Result<(), String> {
+        while self.position < self.ast.len() {
+            if let Statement::Assigment(name, _) = self.current_statement().clone() {
+                if name == "s".to_string() {
+                    print!("");
+                }
+            }
+
+            self.advance()?;
+        }
+
+        Ok(())
+    }
+
     pub fn advance(&mut self) -> Result<(), String> {
+        println!("C: {:?}", self.current_statement());
+
         match self.current_statement().clone() {
             Statement::Assigment(name, expr) => {
                 self.values.insert(name, self.interpret_expression(expr)?);
             },
             Statement::Print(expr) => {
-                todo!();
+                println!("PRINT: {:?}", self.set_value(Value::Unknown(expr))?.ok_or_else(|| format!("Unable to find exact set value of string."))?);
+                // todo!();
             },
             Statement::Display(expr) => {
                 todo!();
@@ -102,10 +125,6 @@ impl Interpreter {
         }
 
         self.position += 1;
-        
-        if self.position >= self.ast.len() {
-            return Err(format!("Program Complete"));
-        }
 
         Ok(())
     }
@@ -139,12 +158,25 @@ impl Interpreter {
     }
 
     fn simplify_value(&self, value: Value, depth: u32) -> Result<Value, String> {
+        let mut v = value;
+        let mut prev = Value::None;
+        while v != prev {
+            prev = v.clone();
+            v = self.simplify_step(v, depth)?;
+        }
+
+        Ok(v)
+    }
+
+    fn simplify_step(&self, value: Value, depth: u32) -> Result<Value, String> {
+        println!("{}{:?} {:?}", " ".repeat(255 - depth as usize), depth, value);
+
         if depth == 0 {
             return Err(format!("Max Recursion Depth of Exceeded. Please look for self-refferential formulae."));
         }
 
         match value {
-            Value::None => {Ok(value)},
+            Value::None => {Ok(Value::None)},
             Value::Known(s) => {Ok(Value::Known(s))},
             Value::Literal(s) => {
                 if let Ok(s) = Value::Literal(s.clone()).to_set() {
@@ -161,7 +193,10 @@ impl Interpreter {
             Value::Unknown(expr) => {
                 match expr {
                     Expr::Identifier(name) => {
-                        self.values.get(&name).cloned().ok_or_else(|| format!("Variable Name Not Found.\nExpr: {:?}", name))
+                        self.simplify_value(
+                            self.values.get(&name).cloned().ok_or_else(|| format!("Variable Name Not Found.\nExpr: {:?}", name))?,
+                            depth - 1
+                        )
                     },
                     Expr::SetLiteral(exprs) => {
                         Ok(Value::Literal(
@@ -205,7 +240,15 @@ impl Interpreter {
                                     Err(format!("Unable to interpret ForAll expression as a tuple map."))
                                 }
                             },
-                            _ => {Err(format!("Function is not of a form which can be interpreted as a function."))}
+                            _ => {
+                                // Err(format!("Function is not of a form which can be interpreted as a function.\nFunc: {:?}", func))
+                                Ok(Value::Unknown(
+                                    Expr::Application(
+                                        self.simplify_value(Value::Unknown(*func), depth - 1)?,
+                                        arg
+                                    )
+                                ))
+                            }
                         }
                     },
                     Expr::ForAll(expr, name) => {
@@ -221,12 +264,7 @@ impl Interpreter {
     }
 
     fn set_value(&self, value: Value) -> Result<Option<Set>, String> {
-        let mut v = value;
-        let mut prev = Value::None;
-        while v != prev {
-            prev = v.clone();
-            v = self.simplify_value(v, 255)?;
-        }
+        let v = self.simplify_value(value, 255)?;
 
         if let Value::Known(s) = v {
             Ok(Some(s))

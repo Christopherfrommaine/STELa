@@ -1,5 +1,6 @@
 mod parser;
 mod interpreter;
+mod interpreter3;
 mod format_tree;
 
 use env_logger;
@@ -14,20 +15,17 @@ fn main() {
 
     match file_contents {
         Ok(s) => {
-            let l = parser::Lexer::new(&(s));
+            let l = parser::Lexer::new(&(PRELUDE.to_string() + &s));
             let mut p = parser::Parser::new(l);
             let res = p.parse();
-            let o: String;
+            
             match res {
                 Ok(prog) => {
-                    println!("Parsed Program: \n{:?}", prog);
-                    
+                    println!("Parsed Program: \n{:?}\nEnd Parsed Program.", prog);
+
                     let mut interp = interpreter::Interpreter::new(prog.statements);
 
-                    let mut o = Ok(());
-                    while Ok(()) == o {
-                        o = interp.advance();
-                    }
+                    let o = interp.run();
 
                     println!("o: {o:?}");
                 
