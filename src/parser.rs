@@ -1,5 +1,5 @@
 use log;
-use std::collections::VecDeque;
+use std::collections::{HashSet, VecDeque};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Token {
@@ -25,13 +25,30 @@ pub enum Token {
     Eof,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Clone, Debug, Eq, PartialOrd, Ord, Hash)]
 pub enum Expr {
     Identifier(String),
     SetLiteral(Vec<Expr>),
     Application(Box<Expr>, Box<Expr>),
     ForAll(Box<Expr>, String),
     Membership(Box<Expr>, Box<Expr>),
+}
+
+impl PartialEq for Expr {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Self::Identifier(l0), Self::Identifier(r0)) => l0 == r0,
+            (Self::SetLiteral(l0), Self::SetLiteral(r0)) => {
+                let l0s: HashSet<Expr> = l0.iter().cloned().collect();
+                let r0s: HashSet<Expr> = r0.iter().cloned().collect();
+                l0s == r0s
+            },
+            (Self::Application(l0, l1), Self::Application(r0, r1)) => l0 == r0 && l1 == r1,
+            (Self::ForAll(l0, l1), Self::ForAll(r0, r1)) => l0 == r0 && l1 == r1,
+            (Self::Membership(l0, l1), Self::Membership(r0, r1)) => l0 == r0 && l1 == r1,
+            _ => false,
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -43,7 +60,7 @@ pub enum Statement {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Program {
-    statements: Vec<Statement>,
+    pub statements: Vec<Statement>,
 }
 
 pub struct Lexer {

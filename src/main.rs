@@ -1,16 +1,15 @@
 mod parser;
 mod interpreter;
-mod interpreter2;
 mod format_tree;
 
 use env_logger;
 
-const PRELUDE: &str = include_str!("prelude.st");
+const PRELUDE: &str = include_str!("prelude.stela");
 
 fn main() {
     env_logger::init();
 
-    let path = std::env::args().into_iter().skip(1).next().unwrap_or("examples/test3.st".to_string());
+    let path = std::env::args().into_iter().skip(1).next().unwrap_or("examples/test1.stela".to_string());
     let file_contents = std::fs::read_to_string(path);
 
     match file_contents {
@@ -20,11 +19,21 @@ fn main() {
             let res = p.parse();
             let o: String;
             match res {
-                Ok(prog) => {o = format!("Parsed Program:\n{:?}", prog);},
-                Err(reason) => {o = format!("{}", reason);}
+                Ok(prog) => {
+                    println!("Parsed Program: \n{:?}", prog);
+                    
+                    let mut interp = interpreter::Interpreter::new(prog.statements);
+
+                    let mut o = Ok(());
+                    while Ok(()) == o {
+                        o = interp.advance();
+                    }
+
+                    println!("o: {o:?}");
+                
+                },
+                Err(reason) => {println!("{}", reason);}
             }
-            // println!("{}", format_tree::format_tree(&o));
-            println!("{}", o);
         },
         Err(e) => {eprintln!("No file found:\n{:?}", e);},
     }

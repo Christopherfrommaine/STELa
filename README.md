@@ -11,7 +11,7 @@ The STELa parser and interpreter are built in Rust. To run a program, install ru
 
 The simplest program in STELa is printint out an empty set:
 
-```stelaela
+```stela
 print {};
 ```
 
