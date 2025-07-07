@@ -33,7 +33,7 @@ pub enum Expr {
     Application(Box<Expr>, Box<Expr>),
     ForAll(Box<Expr>, String),
     Membership(Box<Expr>, Box<Expr>),
-    Known(crate::interpreter3::Set),  // Only used within interpreter
+    Known(crate::interpreter::Set),  // Only used within interpreter
     None,                             // Only used within interpreter
 }
 
@@ -56,13 +56,17 @@ impl PartialEq for Expr {
         match (self, other) {
             (Self::Identifier(l0), Self::Identifier(r0)) => l0 == r0,
             (Self::SetLiteral(l0), Self::SetLiteral(r0)) => {
-                let l0s: HashSet<Expr> = l0.iter().cloned().collect();
-                let r0s: HashSet<Expr> = r0.iter().cloned().collect();
-                l0s == r0s
+                // let l0s: HashSet<Expr> = l0.iter().cloned().collect();
+                // let r0s: HashSet<Expr> = r0.iter().cloned().collect();
+                // l0s == r0s
+
+                l0.iter().all(|i| r0.contains(i))
             },
             (Self::Application(l0, l1), Self::Application(r0, r1)) => l0 == r0 && l1 == r1,
             (Self::ForAll(l0, l1), Self::ForAll(r0, r1)) => l0 == r0 && l1 == r1,
             (Self::Membership(l0, l1), Self::Membership(r0, r1)) => l0 == r0 && l1 == r1,
+            (Self::None, Self::None) => true,
+            (Self::Known(s1), Self::Known(s2)) => s1 == s2,
             _ => false,
         }
     }

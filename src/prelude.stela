@@ -15,7 +15,9 @@
 
 ## Basic Definitions
 # (A, B) == A, B  == ,@A@B == {{A} {A B}} == a pair of A and B
-, = {(a, {(b, {{a} {a b}}) for all b}) for all a};
+
+# Even though this *would* work, it is recursive during interpreting. Therefore, it is hardcoded as a set in the interpreter.
+# , = {(a, {(b, {{a} {a b}}) for all b}) for all a};
 
 0 = {};
 1 = {0};

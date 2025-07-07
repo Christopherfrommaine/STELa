@@ -1,6 +1,5 @@
 mod parser;
 mod interpreter;
-mod interpreter3;
 mod format_tree;
 
 use env_logger;
@@ -25,9 +24,10 @@ fn main() {
 
                     let mut interp = interpreter::Interpreter::new(prog.statements);
 
-                    let o = interp.run();
-
-                    println!("o: {o:?}");
+                    match interp.run() {
+                        Err(e) => {println!("--- error:\n{}", e);},
+                        Ok(s) => {println!("--- output:\n{}", s);}
+                    }
                 
                 },
                 Err(reason) => {println!("{}", reason);}
