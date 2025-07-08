@@ -1,5 +1,5 @@
 use crate::parser::{Expr, Statement};
-use std::{collections::{BTreeSet, HashMap}, hash::Hash};
+use std::{collections::{BTreeSet, HashMap}, hash::Hash, string::FromUtf8Error, vec};
 
 impl Expr {
     fn to_set(&self) -> Result<Set, String> {
@@ -44,8 +44,72 @@ impl Set {
         }
     }
 
-    fn ackermann(&self) -> u64 {
+    fn ackermann(&self) -> u32 {
         self.s.iter().map(|i| 1 << i.ackermann()).sum()
+    }
+
+    fn interpret_as_integer(&self) -> Result<u32, String> {
+        if self.s.len() == 0 {
+            Ok(0)
+        } else {
+            let mut o = self.s.iter().map(|ss| ss.interpret_as_integer()).collect::<Result<Vec<u32>, String>>()?;
+            o.sort_unstable();
+
+            let mx = *o.iter().max().unwrap();
+            
+            if o != (0..=mx).collect::<Vec<u32>>() {
+                return Err(format!("Set could not be converted to integer. Incorrect Structure: {:?}", o));
+            }
+
+            Ok(mx + 1)
+        }
+    }
+
+    fn interpret_as_vector(&self) -> Result<Vec<Set>, String> {
+        let mut vector_values = vec![None; self.s.len()];
+
+        for ss in self.s.clone() {
+            let (t1, t2) = Expr::Known(ss).destructure_tuple()?;
+            
+            if let Expr::Known(set) = t1 {
+                let index = set.interpret_as_integer()? as usize;
+
+                if index >= self.s.len() {
+                    return Err(format!("Index out of range during vector interpretation."))
+                }
+
+                vector_values[index] = Some(t2);
+
+            } else {
+                return Err(format!("Index is not a known set."));
+            }
+        }
+
+        let vector_values_as_option = vector_values.into_iter().collect::<Option<Vec<Expr>>>();
+
+        if let Some(o) = vector_values_as_option {
+            Ok(o.into_iter().map(|expr| match expr {
+                Expr::Known(s) => s,
+                _ => unreachable!(),
+            }).collect())
+        } else {
+            Err(format!("Some indices are missing from the vector."))
+        }
+    }
+
+    fn interpret_as_string(&self) -> Result<String, String> {
+        let vs = self
+            .interpret_as_vector()?
+            .into_iter()
+            .map(|i| i.ackermann())
+            .map(|a| if a <= 255 {Ok(a as u8)} else {Err(format!("Integer out of bounds for interpretation as UTF-8"))})
+            .collect::<Result<Vec<u8>, String>>()?;
+
+        match String::from_utf8(vs) {
+            Err(_) => {Err(format!("Byte Array not valid UTF-8"))},
+            Ok(string) => {Ok(string)}
+        }
+
     }
 }
 
@@ -126,10 +190,12 @@ impl Interpreter {
             },
             Statement::Print(expr) => {
                 let o = self.force_evaluate(expr.clone())?.ok_or(format!("Unable to find exact set value of string.\nexpr: {:?}\nevaled expr: {:?}", expr.clone(), self.evaluate(expr)))?;
-                out += &format!("\nPRINT: {:?}\n", o);
+                out += &format!("\nPRNT: {:?}\n", o);
             },
             Statement::Display(expr) => {
-                todo!();
+                let o = self.force_evaluate(expr.clone())?.ok_or(format!("Unable to find exact set value of string.\nexpr: {:?}\nevaled expr: {:?}", expr.clone(), self.evaluate(expr)))?;
+                let s = o.interpret_as_string()?;
+                out += &format!("\nDISP: {}\n", s);
             },
         }
 
