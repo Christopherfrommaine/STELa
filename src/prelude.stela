@@ -32,7 +32,7 @@ and = {(0, {(0, 0) (1, 0)}) (1, {(0, 0) (1, 1)})};
 xor = {(0, {(0, 0) (1, 1)}) (1, {(0, 1) (1, 0)})};
 
 ## Set Operations
-| = {(a, {(bool, if@bool@a@none) for all bool}) for all a};  # 'such that' operator
+| = {(a, {(bool, a if@bool none) for all bool}) for all a};  # 'such that' operator
 U = {(A, {(B, {(e | ((e in A) or  (e in B))) for all e}) for all B}) for all A};  # Union
 & = {(A, {(B, {(e | ((e in A) and (e in B))) for all e}) for all B}) for all A};  # Intersection
 ^ = {(A, {(B, {(e | ((e in A) xor (e in B))) for all e}) for all B}) for all A};  # Symmetric Difference
@@ -46,7 +46,7 @@ S = {(n, n U {n}) for all n};
 ## Higher Order Operations
 map = {(f, {(S, {(f@element | (element in S)) for all element}) for all S}) for all f};
 filter = {(pred, {(S, {(e | ((e in S) and pred@e)) for all e}) for all S}) for all pred};
-# fold is impossible due to sets being unordered (though I could define an order based on trees)
+# fold is impossible due to sets being unordered (though I could define an order)
 all = {(pred, {(S, (S ? filter@pred@S)) for all S}) for all pred};
 any = {(pred, {(S, not@(0 ? filter@pred@S)) for all S}) for all pred};
 

@@ -1,6 +1,6 @@
 use log;
 use core::fmt;
-use std::collections::{HashSet, VecDeque};
+use std::collections::VecDeque;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Token {
@@ -389,8 +389,8 @@ impl Parser {
                 }
 
                 if membership_next {
-                    let element = subexprs.pop().ok_or_else(|| "No Valid Element for Membership.".to_string())?;
-                    let set = subexprs.pop().ok_or_else(|| "No Valid Set for Membership.".to_string())?;
+                    let set = subexprs.pop().ok_or_else(|| "No Valid Element for Membership.".to_string())?;
+                    let element = subexprs.pop().ok_or_else(|| "No Valid Set for Membership.".to_string())?;
                     subexprs.push(Expr::Membership(
                         Box::new(element),
                         Box::new(set)

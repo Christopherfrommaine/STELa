@@ -9,7 +9,7 @@ const PRELUDE: &str = include_str!("prelude.stela");
 fn main() {
     env_logger::init();
 
-    let path = std::env::args().into_iter().skip(1).next().unwrap_or("examples/test1.stela".to_string());
+    let path = std::env::args().into_iter().skip(1).next().unwrap_or("examples/test2.stela".to_string());
     let file_contents = std::fs::read_to_string(path);
 
     match file_contents {

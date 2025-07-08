@@ -22,5 +22,24 @@
             "args": [],
             "cwd": "${workspaceFolder}"
         },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in executable 'set_theory_esolang'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--bin=set_theory_esolang",
+                    "--package=set_theory_esolang"
+                ],
+                "filter": {
+                    "name": "set_theory_esolang",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        }
     ]
 }

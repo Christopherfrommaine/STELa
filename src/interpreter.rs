@@ -9,6 +9,26 @@ impl Expr {
             _ => {Err(format!("Expr could not be converted to a set."))}
         }
     }
+
+    fn contains_membership_checks_of(&self) -> Vec<Expr> {
+
+        let mut o = Vec::new();
+        
+        match self {
+            Expr::SetLiteral(exprs) => {
+                o.extend(exprs.into_iter().flat_map(|i| i.contains_membership_checks_of()))
+            },
+            Expr::Membership(_elem, set) => {
+                o.push(*set.clone());
+            },
+            Expr::Application(_func, arg) =>{
+                o.extend(arg.contains_membership_checks_of());
+            },
+            _ => {},
+        }
+
+        o
+    }
 }
 
 
@@ -183,17 +203,17 @@ impl Interpreter {
         println!("C: {:?}", self.current_statement());
 
         let mut out = String::new();
-
+        
         match self.current_statement().clone() {
             Statement::Assigment(name, expr) => {
                 self.values.insert(name, expr);
             },
             Statement::Print(expr) => {
-                let o = self.force_evaluate(expr.clone())?.ok_or(format!("Unable to find exact set value of string.\nexpr: {:?}\nevaled expr: {:?}", expr.clone(), self.evaluate(expr)))?;
+                let o = self.force_evaluate(expr.clone())?.ok_or(format!("Unable to find exact set value of string.\nexpr: {:?}\nevaled expr: {:?}", expr.clone(), self.evaluate(expr, false)))?;
                 out += &format!("\nPRNT: {:?}\n", o);
             },
             Statement::Display(expr) => {
-                let o = self.force_evaluate(expr.clone())?.ok_or(format!("Unable to find exact set value of string.\nexpr: {:?}\nevaled expr: {:?}", expr.clone(), self.evaluate(expr)))?;
+                let o = self.force_evaluate(expr.clone())?.ok_or(format!("Unable to find exact set value of string.\nexpr: {:?}\nevaled expr: {:?}", expr.clone(), self.evaluate(expr, false)))?;
                 let s = o.interpret_as_string()?;
                 out += &format!("\nDISP: {}\n", s);
             },
@@ -208,7 +228,7 @@ impl Interpreter {
         Ok(())
     }
 
-    fn evaluate(&self, expr: Expr) -> Result<Expr, String> {
+    fn evaluate(&self, expr: Expr, forced: bool) -> Result<Expr, String> {
         println!("e: {:?}", expr);
 
         match expr {
@@ -216,16 +236,41 @@ impl Interpreter {
             Expr::Known(s) => {Ok(Expr::Known(s))}
             Expr::Identifier(name) => {
                 match self.values.get(&name).cloned() {
-                    Some(value) => {self.evaluate(value)},
+                    Some(value) => {self.evaluate(value, forced)},
                     None => {Ok(Expr::Identifier(name))},
                 }
             },
-            Expr::ForAll(expr, name) => {Ok(Expr::ForAll(Box::new(self.evaluate(*expr.clone()).unwrap_or(*expr)), name))},
+            Expr::ForAll(expr, name) => {
+                println!("THIS SHOULD REALLY NOT BE HAPPENING, {:?}", Expr::ForAll(expr.clone(), name.clone()));
+                // Ok(Expr::ForAll(Box::new(self.evaluate(*expr.clone(), forced).unwrap_or(*expr)), name))
+    
+                eprintln!("USING BACKUP FORALL EVALUATION SYSTEM.");
+
+                let members = expr.contains_membership_checks_of();
+                println!("Members: {:?}", members);
+                if members.len() == 0 {
+                    return Err(format!("Unable to interpret ForAll expression as a tuple map.\nExpr: {:?}", *expr));
+                }
+
+                let mut all_elements = Vec::new();
+
+                for member in members {
+                    all_elements.extend(self.force_evaluate(member)?.ok_or(format!("Ruh roh"))?.s.into_iter());
+                }
+
+                let mut o = Vec::new();
+
+                for e in all_elements {
+                    o.push(expr.clone().substitute(name.clone(), Expr::Known(e))?);
+                }
+
+                self.evaluate(Expr::SetLiteral(o), forced)
+            },
             Expr::SetLiteral(exprs) => {
                 if let Ok(set) = Expr::SetLiteral(exprs.clone()).to_set() {
                     Ok(Expr::Known(set))
                 } else {
-                    Ok(Expr::SetLiteral(exprs.into_iter().map(|i| self.evaluate(i)).collect::<Result<Vec<Expr>, String>>()?))
+                    Ok(Expr::SetLiteral(exprs.into_iter().map(|i| self.evaluate(i, forced)).collect::<Result<Vec<Expr>, String>>()?))
                 }
             },
             Expr::Application(func, arg) => {
@@ -241,24 +286,31 @@ impl Interpreter {
 
                         Err(format!("No Matching Input Found in SetLiteral Function Application."))
                     },
+                    Expr::Known(set) => {
+                        for s in set.s {
+                            if let Ok((inp, out)) = Expr::Known(s).destructure_tuple(){
+                                if inp == *arg {
+                                    return Ok(out);
+                                }
+                            }
+                        }
+
+                        Err(format!("No Matching Input Found in SetLiteral Function Application."))
+                    },
                     Expr::ForAll(expr, name) => {
                         // Screw pattern matching
-                        if let Ok((t1, t2)) = expr.destructure_tuple() {
+                        if let Ok((t1, t2)) = expr.clone().destructure_tuple() {
                             if t1 == Expr::Identifier(name.clone()) {
                                 t2.substitute(name, *arg)
                             } else {
                                 Err(format!("Pattern matching not supported at this time."))
                             }
                         } else {
-                            Err(format!("Unable to interpret ForAll expression as a tuple map."))
+                            Err(format!("Unable to interpret ForAll expression as a tuple map.\nExpr: {:?}", *expr))
                         }
                     },
                     _ => {
-                        // Err(format!("Function is not of a form which can be interpreted as a function.\nFunc: {:?}", func))
-                        self.evaluate(Expr::Application(
-                            Box::new(self.evaluate(*func)?),
-                        arg
-                        ))
+                        Err(format!("Function is not of a form which can be interpreted as a function.\nFunc: {:?}", func))
                         
                     }
                 }
@@ -273,12 +325,13 @@ impl Interpreter {
         while !prev.eq(&expr) {
             println!("P,C: {:?} | {:?}", prev, expr);
             prev = expr.clone();
-            expr = self.evaluate(expr)?;
+            expr = self.evaluate(expr, false)?;
         }
         
         if let Expr::Known(s) = expr {
             Ok(Some(s))
         } else {
+            println!("Unable to force evaluation.\nMost simplified form: {:?}", expr);
             Ok(None)
         }
     }
@@ -300,6 +353,8 @@ impl Expr {
     fn destructure_tuple(self) -> Result<(Expr, Expr), String> {
 
         println!("Destructuring: {:?}", self);
+
+        println!("{}", crate::format_tree::format_tree(&format!("{:?}", self)));
 
         if let Expr::SetLiteral(exprs) = self {
             if exprs.len() == 2 {
@@ -323,12 +378,13 @@ impl Expr {
                     let tuple1 = if tuple0 == larger[0] {larger[1].clone()} else {larger[0].clone()};
                     // Remember to check for the case of {{a} {a a}}
 
+                    println!("Destructuring sucuessful!");
                     Ok((tuple0, tuple1))
                 } else {
                     Err(format!("Cannot be interpreted as tuple. Unable to find two set literals."))
                 }
             } else {
-                Err(format!("Set literal contains too many elements to be interpreted as a pair."))
+                Err(format!("Set literal contains wrong number of elements to be interpreted as a pair."))
             }
         } else {
             Err(format!("Wrong expression type to be destructured"))
