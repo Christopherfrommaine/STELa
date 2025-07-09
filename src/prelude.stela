@@ -62,3 +62,7 @@ vector_append = {(vector, {(element, (vector_length@vector, element)) for all el
 
 ## Lambda Calculus
 Y_combinator = {(f, f@({(x, f@(x@x)) for all x}@({(x, f@(x@x)) for all x}))) for all f};
+
+## Ending marker
+# This sets the prelude_finished variable for debugging purposes
+prelude_finished = none;

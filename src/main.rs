@@ -9,30 +9,33 @@ const PRELUDE: &str = include_str!("prelude.stela");
 fn main() {
     env_logger::init();
 
-    let path = std::env::args().into_iter().skip(1).next().unwrap_or("examples/test2.stela".to_string());
-    let file_contents = std::fs::read_to_string(path);
+    let args: Vec<String> = std::env::args().into_iter().skip(1).collect();
+    let include_prelude = !args.contains(&"--no-prelude".to_string());
+    let path = args
+        .into_iter()
+        .filter(|s| s.chars().next().unwrap_or(' ') != '-')  // Remove flags
+        .next()
+        .unwrap_or("examples/test2.stela".to_string());
+    
+    let mut inp =  std::fs::read_to_string(path).expect("File not found.");
 
-    match file_contents {
-        Ok(s) => {
-            let l = parser::Lexer::new(&(PRELUDE.to_string() + &s));
-            let mut p = parser::Parser::new(l);
-            let res = p.parse();
-            
-            match res {
-                Ok(prog) => {
-                    println!("Parsed Program: \n{:?}\nEnd Parsed Program.", prog);
+    if include_prelude {
+        inp = PRELUDE.to_string() + &inp
+    }
 
-                    let mut interp = interpreter::Interpreter::new(prog.statements);
+    let program = parser::Parser::new(
+            parser::Lexer::new(&inp)
+        )
+        .parse()
+        .expect("Unable to parse.");
 
-                    match interp.run() {
-                        Err(e) => {println!("--- error:\n{}", e);},
-                        Ok(s) => {println!("--- output:\n{}", s);}
-                    }
-                
-                },
-                Err(reason) => {println!("{}", reason);}
-            }
-        },
-        Err(e) => {eprintln!("No file found:\n{:?}", e);},
+    
+    println!("Parsed Program: \n{:?}\nEnd Parsed Program.", program);
+
+    let mut interpreter = interpreter::Interpreter::new(program.statements);
+
+    match interpreter.run() {
+        Err(e) => {println!("--- error:\n{}", e);},
+        Ok(s) => {println!("--- output:\n{}", s);}
     }
 }

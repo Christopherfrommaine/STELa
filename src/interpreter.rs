@@ -29,6 +29,10 @@ impl Expr {
 
         o
     }
+
+    fn format_tree(&self) -> String {
+        crate::format_tree::format_tree(&format!("{self:?}"))
+    }
 }
 
 
@@ -62,6 +66,10 @@ impl Set {
         } else {
             Self::zero()
         }
+    }
+
+    fn to_literal(&self) -> Expr {
+        Expr::SetLiteral(self.s.iter().map(|i| i.to_literal()).collect())
     }
 
     fn ackermann(&self) -> u32 {
@@ -187,10 +195,8 @@ impl Interpreter {
 
     pub fn run(&mut self) -> Result<String, String> {
         while self.position < self.ast.len() {
-            if let Statement::Assigment(name, _) = self.current_statement().clone() {
-                if name == "s".to_string() {
-                    print!("");
-                }
+            if self.values.contains_key("prelude_finished") {
+                print!("");
             }
 
             self.advance()?;
@@ -206,14 +212,19 @@ impl Interpreter {
         
         match self.current_statement().clone() {
             Statement::Assigment(name, expr) => {
-                self.values.insert(name, expr);
+                let ex = self.evaluate(expr, false)?;
+                println!("VS: {} = {:?}", name, ex);
+                self.values.insert(name, ex);
             },
             Statement::Print(expr) => {
-                let o = self.force_evaluate(expr.clone())?.ok_or(format!("Unable to find exact set value of string.\nexpr: {:?}\nevaled expr: {:?}", expr.clone(), self.evaluate(expr, false)))?;
-                out += &format!("\nPRNT: {:?}\n", o);
+                match self.force_evaluate(expr.clone())? {
+                    Some(o) => {out += &format!("\nPRNT: {:?}\n", o);},
+                    None => {out += &format!("\nPRNT: {:?}\n", expr);}
+                }
+                
             },
             Statement::Display(expr) => {
-                let o = self.force_evaluate(expr.clone())?.ok_or(format!("Unable to find exact set value of string.\nexpr: {:?}\nevaled expr: {:?}", expr.clone(), self.evaluate(expr, false)))?;
+                let o = self.force_evaluate(expr.clone())?.ok_or_else(|| format!("Unable to find exact set value of string.\nexpr: {:?}\nevaled expr: {:?}", expr.clone(), self.evaluate(expr, false)))?;
                 let s = o.interpret_as_string()?;
                 out += &format!("\nDISP: {}\n", s);
             },
@@ -241,9 +252,12 @@ impl Interpreter {
                 }
             },
             Expr::ForAll(expr, name) => {
-                println!("THIS SHOULD REALLY NOT BE HAPPENING, {:?}", Expr::ForAll(expr.clone(), name.clone()));
-                // Ok(Expr::ForAll(Box::new(self.evaluate(*expr.clone(), forced).unwrap_or(*expr)), name))
-    
+
+
+                if !forced {
+                    return Ok(Expr::ForAll(Box::new(self.evaluate(*expr, forced)?), name))
+                }
+
                 eprintln!("USING BACKUP FORALL EVALUATION SYSTEM.");
 
                 let members = expr.contains_membership_checks_of();
@@ -270,13 +284,24 @@ impl Interpreter {
                 if let Ok(set) = Expr::SetLiteral(exprs.clone()).to_set() {
                     Ok(Expr::Known(set))
                 } else {
-                    Ok(Expr::SetLiteral(exprs.into_iter().map(|i| self.evaluate(i, forced)).collect::<Result<Vec<Expr>, String>>()?))
+                    let o = Ok(Expr::SetLiteral(exprs.clone().into_iter().map(|i| self.evaluate(i, forced)).collect::<Result<Vec<Expr>, String>>()?));
+                    println!("a reminder: e = {:?}", exprs);
+                    
+                    if let Ok(o1) = o {
+                        if let Ok(set) = o1.to_set() {
+                            Ok(Expr::Known(set))
+                        } else {
+                            Ok(o1)
+                        }
+                    } else {
+                        o
+                    }
                 }
             },
             Expr::Application(func, arg) => {
                 match *func {
                     Expr::SetLiteral(set) => {
-                        for s in set {
+                        for s in set.clone() {
                             if let Ok((inp, out)) = s.destructure_tuple(){
                                 if inp == *arg {
                                     return Ok(out);
@@ -284,7 +309,7 @@ impl Interpreter {
                             }
                         }
 
-                        Err(format!("No Matching Input Found in SetLiteral Function Application."))
+                        Err(format!("No Matching Input Found in SetLiteral Function Application.\nExpr: {:?}", set))
                     },
                     Expr::Known(set) => {
                         for s in set.s {
@@ -295,23 +320,31 @@ impl Interpreter {
                             }
                         }
 
-                        Err(format!("No Matching Input Found in SetLiteral Function Application."))
+                        Err(format!("No Matching Input Found in KnownSet Function Application."))
                     },
                     Expr::ForAll(expr, name) => {
                         // Screw pattern matching
-                        if let Ok((t1, t2)) = expr.clone().destructure_tuple() {
-                            if t1 == Expr::Identifier(name.clone()) {
-                                t2.substitute(name, *arg)
-                            } else {
-                                Err(format!("Pattern matching not supported at this time."))
+                        match expr.clone().destructure_tuple() {
+                            Ok((t1, t2)) => {
+                                if t1 == Expr::Identifier(name.clone()) {
+                                    let o = t2.substitute(name, *arg);
+                                    println!("ooo {:?}", o);
+                                    o
+                                } else {
+                                    Err(format!("Pattern matching not supported at this time."))
+                                }
                             }
-                        } else {
-                            Err(format!("Unable to interpret ForAll expression as a tuple map.\nExpr: {:?}", *expr))
+                            Err(e) => {
+                                Err(format!("Unable to interpret ForAll expression as a tuple map.\nExpr: {:?}\nErr: {}", *expr, e))
+                            }
                         }
                     },
                     _ => {
-                        Err(format!("Function is not of a form which can be interpreted as a function.\nFunc: {:?}", func))
-                        
+                        // Err(format!("Function is not of a form which can be interpreted as a function.\nFunc: {:?}", func))
+                        self.evaluate(Expr::Application(
+                            Box::new(self.evaluate(*func, false)?),
+                            Box::new(self.evaluate(*arg,  false)?),
+                        ), forced)
                     }
                 }
             },
@@ -325,7 +358,7 @@ impl Interpreter {
         while !prev.eq(&expr) {
             println!("P,C: {:?} | {:?}", prev, expr);
             prev = expr.clone();
-            expr = self.evaluate(expr, false)?;
+            expr = self.evaluate(expr, true)?;
         }
         
         if let Expr::Known(s) = expr {
@@ -354,7 +387,9 @@ impl Expr {
 
         println!("Destructuring: {:?}", self);
 
-        println!("{}", crate::format_tree::format_tree(&format!("{:?}", self)));
+        if let Expr::Known(s) = self {
+            return s.to_literal().destructure_tuple();
+        }
 
         if let Expr::SetLiteral(exprs) = self {
             if exprs.len() == 2 {
@@ -378,13 +413,13 @@ impl Expr {
                     let tuple1 = if tuple0 == larger[0] {larger[1].clone()} else {larger[0].clone()};
                     // Remember to check for the case of {{a} {a a}}
 
-                    println!("Destructuring sucuessful!");
+                    println!("Destructuring sucuessful! ({:?}, {:?})", tuple0, tuple1);
                     Ok((tuple0, tuple1))
                 } else {
                     Err(format!("Cannot be interpreted as tuple. Unable to find two set literals."))
                 }
             } else {
-                Err(format!("Set literal contains wrong number of elements to be interpreted as a pair."))
+                Err(format!("Set literal contains wrong number of elements ({}) to be interpreted as a pair.", exprs.len()))
             }
         } else {
             Err(format!("Wrong expression type to be destructured"))

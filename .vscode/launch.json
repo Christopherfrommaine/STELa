@@ -7,39 +7,19 @@
         {
             "type": "lldb",
             "request": "launch",
-            "name": "Debug executable 'set_theory_esolang'",
+            "name": "Cargo launch",
             "cargo": {
                 "args": [
-                    "build",
-                    "--bin=set_theory_esolang",
-                    "--package=set_theory_esolang"
-                ],
-                "filter": {
-                    "name": "set_theory_esolang",
-                    "kind": "bin"
-                }
+                    "build"
+                ]
             },
-            "args": [],
-            "cwd": "${workspaceFolder}"
-        },
-        {
-            "type": "lldb",
-            "request": "launch",
-            "name": "Debug unit tests in executable 'set_theory_esolang'",
-            "cargo": {
-                "args": [
-                    "test",
-                    "--no-run",
-                    "--bin=set_theory_esolang",
-                    "--package=set_theory_esolang"
-                ],
-                "filter": {
-                    "name": "set_theory_esolang",
-                    "kind": "bin"
-                }
+            "env": {
+                "RUST_BACKTRACE": "1",
             },
-            "args": [],
-            "cwd": "${workspaceFolder}"
+            "program": "${workspaceFolder}/target/debug/${workspaceFolderBasename}",
+            "args": ["--"]
         }
+        
+        
     ]
 }

@@ -344,9 +344,10 @@ impl Parser {
                             if let Token::Identifier(name) = subexpr[subexpr.len() - 1].clone() {
                                 subexprs.push(
                                     Expr::ForAll(
-                                        Box::new(Expr::SetLiteral(vec![
+                                        // THISS IS IT!!! THIS IS THE BUG I FOUND!!!!!!
+                                        Box::new(
                                             Self::parse_expression_from_tokens(subexpr[1..(subexpr.len() - 2)].to_vec())?
-                                        ])),
+                                        ),
                                         name
                                     )
                                 );

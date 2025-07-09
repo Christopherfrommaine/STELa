@@ -1,5 +1,5 @@
 [package]
-name = "set_theory_esolang"
+name = "STELa"
 version = "0.1.0"
 edition = "2024"
 
