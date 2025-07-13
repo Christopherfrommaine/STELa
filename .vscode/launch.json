@@ -13,9 +13,6 @@
                     "build"
                 ]
             },
-            "env": {
-                "RUST_BACKTRACE": "1",
-            },
             "program": "${workspaceFolder}/target/debug/${workspaceFolderBasename}",
             "args": ["--"]
         }

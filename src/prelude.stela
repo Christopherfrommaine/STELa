@@ -32,16 +32,16 @@ and = {(0, {(0, 0) (1, 0)}) (1, {(0, 0) (1, 1)})};
 xor = {(0, {(0, 0) (1, 1)}) (1, {(0, 1) (1, 0)})};
 
 ## Set Operations
-| = {(a, {(bool, a if@bool none) for all bool}) for all a};  # 'such that' operator
+| = {(a, {(bool, (a if@bool none)) for all bool}) for all a};  # 'such that' operator
 U = {(A, {(B, {(e | ((e in A) or  (e in B))) for all e}) for all B}) for all A};  # Union
 & = {(A, {(B, {(e | ((e in A) and (e in B))) for all e}) for all B}) for all A};  # Intersection
 ^ = {(A, {(B, {(e | ((e in A) xor (e in B))) for all e}) for all B}) for all A};  # Symmetric Difference
-? = {(a, {(b, and@((a in b), (b in a))) for all b}) for all a};  # equality
+? = {(A, {(B, folded_union@{(e, (e in A) or (e in B)) for all e}) for all B}) for all A};  # equality
 
 ## Basic Arithmetic
 S = {(n, n U {n}) for all n};
 + = {(0, {(n, n) for all n})} U {(S@m, {(n, S@(m + n)) for all n}) for all m};
-* = {(0, {(n, 0) for all n})} U {(S@m, {(n, (m * n) + n) for all n}) for all m};
+* = {(0, {(n, 0) for all n})} U {(S@m, {(n, ((m * n) + n)) for all n}) for all m};
 
 ## Higher Order Operations
 map = {(f, {(S, {(f@element | (element in S)) for all element}) for all S}) for all f};

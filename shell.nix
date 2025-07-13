@@ -8,6 +8,6 @@ in pkgs.mkShell {
   ];
 
   shellHook = ''
-    export RUST_LOG=debug
+    export RUST_LOG=warn
   '';
 }

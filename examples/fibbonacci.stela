@@ -1,0 +1,26 @@
+# # Recursive form of the normal iterative approach
+# # Passes 'self' argument in, so that it can use recursion once fib_r is defined
+# 
+# fib_r(self, n1, n2, iteration, max):
+#     if iter >= max:
+#         n2
+#     else:
+#         self(n2, n1 + n2, iteration + 1, max)
+# fib(n):
+#     fib_r(fib_r, 0, 1, 0, n)
+
+fib_r = {(self,
+    {(n1,
+        {(n2,
+            {(iteration,
+                {(max,
+                    (n2 if@(max in iter) (self@n2@(n1 + n2)@(S@iteration)@max))
+                ) for all max})
+            for all iteration})
+        for all n2})
+    for all n1})
+for all self};
+
+fib = {(n, fib_r@fib_r@0@1@0@n) for all n};
+
+print fib(3);
